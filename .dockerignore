@@ -1,0 +1,31 @@
+# Version control / editor
+.git/
+.gitignore
+.cursor/
+*.log
+.DS_Store
+
+# Secrets (never bake into the image)
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Node / frontend build inputs (frontend is built inside the image)
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.vite/
+**/*.tsbuildinfo
+
+# Docs / CI that don't belong in the runtime image
+**/coverage/
