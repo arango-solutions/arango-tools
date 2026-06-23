@@ -11,6 +11,10 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.routers import connection, tools
+from app.runner import ToolNotFoundError, resolve_binary
+
+# A representative client tool used to verify the bundled binaries are present.
+_READINESS_PROBE_BINARY = "arangosh"
 
 app = FastAPI(
     title="Arango Tools GUI",
@@ -37,7 +41,23 @@ app.include_router(tools.router)
 
 @app.get("/api/health")
 async def health() -> dict:
+    """Liveness: the process is up and serving. Cheap and always-on."""
     return {"status": "ok"}
+
+
+@app.get("/api/ready")
+async def ready() -> dict:
+    """Readiness: the client tools are actually resolvable on this host.
+
+    Returns 503 until the bundled binaries can be found so orchestrators don't
+    route traffic to an instance that can't run any tool.
+    """
+    settings = get_settings()
+    try:
+        resolve_binary(_READINESS_PROBE_BINARY, settings.tools_bin)
+    except ToolNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"status": "ready"}
 
 
 def _mount_frontend(application: FastAPI, static_dir: str | None) -> None:
