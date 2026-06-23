@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api/client";
 import ConnectionPanel from "./components/ConnectionPanel";
-import Sidebar, { CONNECTION_KEY } from "./components/Sidebar";
+import HowTo from "./components/HowTo";
+import Sidebar, { CONNECTION_KEY, HOWTO_KEY } from "./components/Sidebar";
 import ToolPanel from "./components/ToolPanel";
 import { useConnection } from "./context/ConnectionContext";
 import type { ToolSpec } from "./types";
@@ -43,6 +44,8 @@ export default function App() {
           )}
           {loading ? (
             <div className="text-sm text-arango-muted">Loading…</div>
+          ) : active === HOWTO_KEY ? (
+            <HowTo />
           ) : active === CONNECTION_KEY || !activeTool ? (
             <ConnectionPanel />
           ) : (

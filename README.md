@@ -1,13 +1,13 @@
 # Arango Tools GUI
 
-A web GUI for the ArangoDB client tools. The backend shells out to the installed
+A web GUI for the Arango client tools. The backend shells out to the installed
 `arango*` binaries and streams their output to the browser; the frontend presents
 each tool as its own tab and lets you connect to an instance via a `.env` file or
 by entering credentials manually.
 
 ## Tools
 
-Each of the ArangoDB 4.0 core client tools gets its own tab:
+Each of the Arango 4.0 core client tools gets its own tab:
 
 | Tab | Binary | Purpose |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Each of the ArangoDB 4.0 core client tools gets its own tab:
 | VPack | `arangovpack` | Convert/validate VelocyPack and JSON (local files) |
 | Starter | `arangodb` | Deploy/manage instances (ArangoDB Starter) |
 
-> Foxx CLI is intentionally excluded: Foxx and `foxx-cli` were removed in ArangoDB 4.0.
+> Foxx CLI is intentionally excluded: Foxx and `foxx-cli` were removed in Arango 4.0.
 
 ## Architecture
 
@@ -45,6 +45,42 @@ arango-tools/
 - The ArangoDB client tools on your `PATH` (or set `ARANGO_TOOLS_BIN`).
 - [uv](https://docs.astral.sh/uv/) for the backend.
 - Node.js 18+ / npm for the frontend.
+
+## How tool execution works (read this before running)
+
+This app is a **GUI wrapper around the real ArangoDB command-line programs** — it
+does not reimplement what `arangodump`, `arangoimport`, etc. do. When you click
+**Run** in the UI, the backend spawns the actual `arango*` executable as a child
+process and streams its stdout/stderr back to the browser over a WebSocket.
+
+Because of this, the binaries must physically exist on the **machine running the
+FastAPI backend** (not your browser's machine):
+
+1. **Install the ArangoDB client tools** on the backend host. They ship with a
+   full ArangoDB installation, or you can install the client-only package. See the
+   [ArangoDB tools docs](https://docs.arango.ai/arangodb/stable/components/tools/).
+2. **Make them discoverable** by either:
+   - ensuring they are on `PATH` (verify with `which arangodump`), or
+   - setting `ARANGO_TOOLS_BIN=/path/to/arangodb/bin` in your `.env`.
+
+The backend resolves each binary in `backend/app/runner.py` (`resolve_binary`):
+it prefers `ARANGO_TOOLS_BIN`, then falls back to `PATH`. If a binary cannot be
+found, the run fails gracefully with an error event and exit code `127`
+("command not found") instead of crashing.
+
+Implications:
+
+- **Host-dependent:** the installed tools must match the OS/architecture of the
+  backend host.
+- **Filesystem is the backend's, not yours:** path-based options (e.g. dump
+  output directory, import source file) and the file-only tools `arangovpack`
+  (VPack) and `arangodb` (Starter) operate on the **backend** host's filesystem.
+- **Reproducible deployments:** a common approach is to run the backend in a
+  Docker image that bundles the ArangoDB client tools so the binaries are always
+  present and version-matched. (A `docker-compose.yml` is a planned follow-up and
+  not part of the initial scope.)
+
+> The same guidance is available in the app itself under the **How To** tab.
 
 ## Setup
 

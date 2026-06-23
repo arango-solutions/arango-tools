@@ -8,6 +8,7 @@ interface SidebarProps {
 }
 
 const CONNECTION_KEY = "__connection__";
+const HOWTO_KEY = "__howto__";
 
 function Mark() {
   return (
@@ -16,7 +17,7 @@ function Mark() {
         A
       </div>
       <div className="leading-tight">
-        <div className="text-sm font-semibold text-white">ArangoDB</div>
+        <div className="text-sm font-semibold text-white">Arango</div>
         <div className="text-[11px] text-white/60">Tools</div>
       </div>
     </div>
@@ -48,6 +49,13 @@ export default function Sidebar({ tools, active, onSelect, connected }: SidebarP
           aria-hidden
         />
       </button>
+      <button
+        type="button"
+        className={itemClass(active === HOWTO_KEY, false)}
+        onClick={() => onSelect(HOWTO_KEY)}
+      >
+        <span>How To</span>
+      </button>
 
       <div className="mt-3 px-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">
         Tools
@@ -74,4 +82,4 @@ export default function Sidebar({ tools, active, onSelect, connected }: SidebarP
   );
 }
 
-export { CONNECTION_KEY };
+export { CONNECTION_KEY, HOWTO_KEY };

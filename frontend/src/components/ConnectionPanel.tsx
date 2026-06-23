@@ -66,7 +66,7 @@ export default function ConnectionPanel() {
     <div className="max-w-2xl">
       <h2 className="text-xl font-semibold text-arango-text">Connection</h2>
       <p className="mt-1 text-sm text-arango-muted">
-        Connect to an ArangoDB instance using your <code className="font-mono">.env</code> file or by
+        Connect to an Arango instance using your <code className="font-mono">.env</code> file or by
         entering credentials manually.
       </p>
 
@@ -210,7 +210,7 @@ export default function ConnectionPanel() {
           {result.message}
           {result.ok && result.version && (
             <span className="ml-1">
-              (ArangoDB {result.version}
+              (Arango {result.version}
               {result.server ? `, ${result.server}` : ""})
             </span>
           )}
