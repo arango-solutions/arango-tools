@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# The .env file lives at the repository root (one level above ``backend/``).
+# For local development a ``.env`` is convenient. We look for one in the current
+# working directory and at the repository root (one level above ``backend/``).
+# In a container these paths simply won't exist and configuration comes purely
+# from environment variables, which always take precedence over any .env file.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_ENV_FILES = (Path(".env"), _REPO_ROOT / ".env")
 
 
 class Settings(BaseSettings):
@@ -18,7 +23,7 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=(_REPO_ROOT / ".env", Path(".env")),
+        env_file=_DEFAULT_ENV_FILES,
         env_prefix="ARANGO_",
         extra="ignore",
         case_sensitive=False,
@@ -59,6 +64,11 @@ def get_settings() -> Settings:
     """Return a freshly loaded :class:`Settings` instance.
 
     Loaded fresh (rather than cached) so edits to .env are picked up on restart
-    and so tests can monkeypatch the environment.
+    and so tests can monkeypatch the environment. Set ``ARANGO_ENV_FILE`` to load
+    a .env from an explicit path (useful when the working directory differs from
+    the file's location); environment variables still take precedence over it.
     """
+    env_file = os.environ.get("ARANGO_ENV_FILE")
+    if env_file:
+        return Settings(_env_file=env_file)
     return Settings()
