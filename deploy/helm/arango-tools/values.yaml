@@ -1,0 +1,124 @@
+# Default values for the arango-tools chart.
+# See deploy/helm/arango-tools/README.md for the full reference.
+
+image:
+  repository: arango-tools
+  # Defaults to the chart's appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# IMPORTANT: this app is single-tenant. The backend holds connection state in
+# memory and spawns tool subprocesses, so it runs as exactly ONE replica. This
+# is intentionally fixed in the Deployment and not configurable here.
+
+service:
+  type: ClusterIP
+  port: 80
+  # The container listens on 8000.
+  targetPort: 8000
+
+# Ingress is OFF by default. There is no application-level authentication yet,
+# so the service is reachable only inside the cluster unless you explicitly
+# expose it. If you enable ingress, put it behind your own auth (e.g. an
+# auth proxy / IdP) and TLS.
+ingress:
+  enabled: false
+  className: ""
+  # WebSocket-friendly defaults for ingress-nginx (the run console streams over
+  # a long-lived WS). Adjust for your controller.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: arango-tools.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: arango-tools-tls
+  #   hosts: [arango-tools.local]
+
+# ArangoDB connection defaults. All optional — users can also enter connection
+# details directly in the UI. Non-secret values go into a ConfigMap; the
+# password goes into a Secret (generated, or reference your own).
+connection:
+  endpoint: ""
+  database: "_system"
+  username: "root"
+  # Inline password -> stored in a generated Secret. For production prefer
+  # existingSecret instead of committing a password to values.
+  password: ""
+  # Reference an existing Secret instead of an inline password.
+  existingSecret: ""
+  passwordKey: "ARANGO_PASSWORD"
+
+# CORS only matters when the UI is served from a different origin than the API.
+# The image serves both from one origin, so leave this empty.
+corsOrigins: ""
+
+# Extra environment variables (list of {name,value} or full EnvVar objects).
+extraEnv: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Hardened defaults. The root filesystem is read-only; the writable paths the
+# app needs are provided by the volumes below.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Writable working directory for tool output (dump/import/export/vpack). Use a
+# PVC if outputs must survive pod restarts; emptyDir suffices for transient use.
+workDir:
+  mountPath: /work
+  persistence:
+    enabled: false
+    size: 5Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+
+# Size of the emptyDir backing /tmp and the home dir (needed because the root FS
+# is read-only). Tool temp files live here.
+scratchSizeLimit: 1Gi
+
+probes:
+  liveness:
+    path: /api/health
+    initialDelaySeconds: 5
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /api/ready
+    initialDelaySeconds: 5
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

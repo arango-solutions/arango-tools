@@ -1,0 +1,17 @@
+{{- if .Values.workDir.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "arango-tools.fullname" . }}-work
+  labels:
+    {{- include "arango-tools.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.workDir.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.workDir.persistence.size | quote }}
+  {{- if .Values.workDir.persistence.storageClass }}
+  storageClassName: {{ .Values.workDir.persistence.storageClass | quote }}
+  {{- end }}
+{{- end }}

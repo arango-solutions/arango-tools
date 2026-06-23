@@ -1,0 +1,27 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}".
+
+IMPORTANT — read before exposing this:
+  * Single-tenant: runs as exactly ONE replica. Connection state is in-memory
+    and shared by everyone who can reach it. Deploy one release per team.
+  * No application-level authentication yet. Keep the Service private (the
+    default is ClusterIP) and/or front it with your own auth proxy + TLS.
+  * The pod can run the ArangoDB client tools and read its own filesystem.
+    It runs as a non-root user with a read-only root filesystem.
+
+Access the UI:
+{{- if .Values.ingress.enabled }}
+  Ingress is enabled. Reach it at:
+  {{- range .Values.ingress.hosts }}
+    http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+  {{- end }}
+{{- else }}
+  Port-forward to your machine:
+
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "arango-tools.fullname" . }} 8080:{{ .Values.service.port }}
+
+  then open http://localhost:8080
+{{- end }}
+
+Check readiness (verifies the bundled client tools resolve):
+
+  kubectl --namespace {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
