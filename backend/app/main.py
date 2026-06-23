@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,19 +13,34 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
+from app.logging_config import configure_logging
 from app.routers import connection, tools
-from app.runner import ToolNotFoundError, resolve_binary
+from app.runner import ToolNotFoundError, resolve_binary, terminate_all
 
 # A representative client tool used to verify the bundled binaries are present.
 _READINESS_PROBE_BINARY = "arangosh"
+
+_settings = get_settings()
+configure_logging(_settings.log_format)
+logger = logging.getLogger("arango_tools")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    logger.info("Arango Tools GUI starting up")
+    yield
+    # Terminate any in-flight tool subprocesses so a pod restart (SIGTERM)
+    # doesn't orphan them.
+    await terminate_all()
+    logger.info("Arango Tools GUI shut down cleanly")
+
 
 app = FastAPI(
     title="Arango Tools GUI",
     description="Wraps the ArangoDB client tools and streams their output to a web UI.",
     version="0.1.0",
+    lifespan=lifespan,
 )
-
-_settings = get_settings()
 
 # CORS is only meaningful when the UI is served from a different origin (e.g. the
 # Vite dev server). When the static bundle is served by this app (the container /

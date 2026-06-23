@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     # served from a different origin (e.g. the Vite dev server); when the static
     # bundle is served by this app the UI is same-origin and CORS is unused.
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Log output format: "json" for structured logs (cloud-friendly) or "text".
+    log_format: str = "json"
 
     @property
     def has_env_defaults(self) -> bool:

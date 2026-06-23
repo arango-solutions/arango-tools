@@ -75,10 +75,9 @@ Implications:
 - **Filesystem is the backend's, not yours:** path-based options (e.g. dump
   output directory, import source file) and the file-only tools `arangovpack`
   (VPack) and `arangodb` (Starter) operate on the **backend** host's filesystem.
-- **Reproducible deployments:** a common approach is to run the backend in a
-  Docker image that bundles the ArangoDB client tools so the binaries are always
-  present and version-matched. (A `docker-compose.yml` is a planned follow-up and
-  not part of the initial scope.)
+- **Reproducible deployments:** the repo ships a `Dockerfile` that bundles the
+  ArangoDB client tools so the binaries are always present and version-matched,
+  and serves the UI + API from a single origin. See **Deployment (BYOC)** below.
 
 > The same guidance is available in the app itself under the **How To** tab.
 
@@ -118,6 +117,48 @@ password. Use **Test connection** to validate; tool tabs that require a server a
 enabled once connected. `http(s)://` endpoints are converted to the tools'
 `tcp://`/`ssl://` form automatically.
 
+## Deployment (BYOC)
+
+The app ships as a single container that bundles the ArangoDB client tools and
+serves the UI + API from one port (`8000`). It's designed to run in your own
+cloud ("bring your own cloud").
+
+### Build & run the image
+
+```bash
+# Build (pin the client tools to your supported ArangoDB line via ARANGODB_REPO)
+docker build -t arango-tools:latest .
+
+# Run (config is via environment variables; see .env.example for all vars)
+docker run --rm -p 8000:8000 \
+  -e ARANGO_ENDPOINT=https://your-arango:8529 \
+  arango-tools:latest
+# open http://localhost:8000
+```
+
+Health endpoints: `GET /api/health` (liveness) and `GET /api/ready` (readiness —
+verifies the bundled client tools resolve). Logs are structured JSON by default
+(`ARANGO_LOG_FORMAT=text` for plain text).
+
+### Kubernetes (Helm)
+
+A chart lives in `deploy/helm/arango-tools`:
+
+```bash
+helm install arango-tools deploy/helm/arango-tools \
+  --namespace arango-tools --create-namespace \
+  --set image.repository=YOUR_REGISTRY/arango-tools \
+  --set image.tag=latest
+```
+
+See `deploy/helm/arango-tools/README.md` for values and constraints.
+
+> **Single-tenant:** the backend keeps connection state in memory and spawns
+> tool subprocesses, so it runs as exactly **one replica**. Deploy one release
+> per team. There is **no application-level auth yet** — keep the Service
+> private (the chart defaults to `ClusterIP`) or front it with your own auth
+> proxy + TLS.
+
 ## Testing
 
 ```bash
@@ -134,3 +175,11 @@ cd frontend && npm test
   injection); only registry-defined binaries can be executed.
 - Passwords are masked in command previews and are never logged. Because the tools
   accept credentials as CLI flags, run the backend in a trusted environment.
+- The container runs as a non-root user with a read-only root filesystem; the
+  Helm chart drops all Linux capabilities and uses the `RuntimeDefault` seccomp
+  profile.
+- **Not yet hardened (tracked as follow-ups):** there is no application-level
+  authentication on the API/WebSocket, the connection test currently skips TLS
+  certificate verification, and credentials are passed to the tools as CLI
+  flags (visible via `ps` inside the pod). Until these land, rely on network
+  isolation (private Service) and a single trusted tenant per deployment.

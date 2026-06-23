@@ -9,7 +9,14 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.connection import store
-from app.runner import ToolNotFoundError, resolve_binary, run_stream, terminate
+from app.runner import (
+    ToolNotFoundError,
+    register_process,
+    resolve_binary,
+    run_stream,
+    terminate,
+    unregister_process,
+)
 from app.tools.builder import build_argv, validate_params
 from app.tools.registry import ToolSpec, get_tool, list_tools
 
@@ -96,6 +103,7 @@ async def run(websocket: WebSocket, name: str) -> None:
 
     def on_start(proc) -> None:
         proc_holder["proc"] = proc
+        register_process(proc)
 
     async def watch_for_cancel() -> None:
         try:
@@ -121,6 +129,9 @@ async def run(websocket: WebSocket, name: str) -> None:
             await terminate(proc)
     finally:
         cancel_task.cancel()
+        proc = proc_holder.get("proc")
+        if proc is not None:
+            unregister_process(proc)
         try:
             await websocket.close()
         except RuntimeError:

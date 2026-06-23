@@ -14,6 +14,27 @@ class ToolNotFoundError(RuntimeError):
     """Raised when a tool binary cannot be located."""
 
 
+# Registry of currently-running tool subprocesses so we can terminate them all
+# on application shutdown (e.g. SIGTERM during a Kubernetes pod restart) instead
+# of orphaning them.
+_active_processes: set[asyncio.subprocess.Process] = set()
+
+
+def register_process(proc: asyncio.subprocess.Process) -> None:
+    _active_processes.add(proc)
+
+
+def unregister_process(proc: asyncio.subprocess.Process) -> None:
+    _active_processes.discard(proc)
+
+
+async def terminate_all(grace: float = 3.0) -> None:
+    """Terminate every tracked subprocess. Safe to call when none are running."""
+    for proc in list(_active_processes):
+        await terminate(proc, grace=grace)
+        _active_processes.discard(proc)
+
+
 def resolve_binary(binary: str, tools_bin: str | None = None) -> str:
     """Locate a tool binary, preferring ``tools_bin`` then the PATH."""
     if tools_bin:
