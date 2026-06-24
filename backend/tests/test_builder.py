@@ -92,6 +92,51 @@ def test_extra_args_are_shell_split_and_appended():
     assert argv[-4:] == ["--threads", "4", "--log.level", "info"]
 
 
+def test_password_with_at_signs_is_escaped_for_tools():
+    # ArangoDB tools expand @envvar@ in option values, so a literal '@' must be
+    # doubled or the password is silently mangled (regression for a 401).
+    tool = get_tool("arangoexport")
+    conn = ConnectionState(
+        endpoint="https://db.example.com:8529",
+        database="pubmed",
+        username="root",
+        password="@Kf@Fk33VVCpcBhR",
+        source="manual",
+    )
+    argv = build_argv(tool, {"type": "json"}, conn)
+    idx = argv.index("--server.password")
+    assert argv[idx + 1] == "@@Kf@@Fk33VVCpcBhR"
+
+
+def test_masked_password_is_not_escaped():
+    tool = get_tool("arangoexport")
+    conn = ConnectionState(
+        endpoint="https://db.example.com:8529",
+        database="pubmed",
+        password="@secret@",
+        source="manual",
+    )
+    argv = build_argv(tool, {"type": "json"}, conn, mask_password=True)
+    assert PASSWORD_MASK in argv
+    assert "@secret@" not in argv
+
+
+def test_field_value_with_at_sign_is_escaped():
+    tool = get_tool("arangoimport")
+    argv = build_argv(tool, {"file": "data.json", "collection": "team@acme"}, _conn())
+    idx = argv.index("--collection")
+    assert argv[idx + 1] == "team@@acme"
+
+
+def test_extra_args_at_signs_are_left_raw():
+    # The raw escape hatch must not be escaped: callers may use @envvar@ on purpose.
+    tool = get_tool("arangodump")
+    argv = build_argv(
+        tool, {"output_directory": "dump", "extra_args": "--server.password @PW@"}, _conn()
+    )
+    assert argv[-2:] == ["--server.password", "@PW@"]
+
+
 def test_validate_params_reports_missing_required_field():
     tool = get_tool("arangoimport")
     errors = validate_params(tool, {"collection": "users"})  # missing required --file

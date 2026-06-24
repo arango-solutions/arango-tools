@@ -15,6 +15,19 @@ def _is_empty(value: object) -> bool:
     return value is None or (isinstance(value, str) and value.strip() == "")
 
 
+def _escape_at(value: str) -> str:
+    """Escape ``@`` as ``@@`` for ArangoDB tool option values.
+
+    The ArangoDB client tools expand ``@envvar@`` in option arguments to the
+    value of the named environment variable, so a literal ``@`` (common in
+    generated passwords) is silently mangled unless doubled. Doubling round-trips
+    correctly: the tools collapse ``@@`` back to a single ``@``. The free-text
+    ``extra_args`` escape hatch is intentionally left untouched so callers can use
+    the substitution feature deliberately.
+    """
+    return value.replace("@", "@@")
+
+
 def _split_list(value: object) -> list[str]:
     if isinstance(value, (list, tuple)):
         items = [str(v) for v in value]
@@ -43,14 +56,14 @@ def _render_field(field: FieldSpec, value: object) -> list[str]:
         if field.repeatable:
             tokens: list[str] = []
             for item in items:
-                tokens.extend([field.flag, item])
+                tokens.extend([field.flag, _escape_at(item)])
             return tokens
-        return [field.flag, ",".join(items)]
+        return [field.flag, _escape_at(",".join(items))]
 
     if field.positional:
-        return [str(value)]
+        return [_escape_at(str(value))]
 
-    return [field.flag, str(value)]
+    return [field.flag, _escape_at(str(value))]
 
 
 def validate_params(tool: ToolSpec, params: dict) -> list[str]:
@@ -67,11 +80,11 @@ def validate_params(tool: ToolSpec, params: dict) -> list[str]:
 
 
 def _connection_args(connection: ConnectionState, *, mask_password: bool) -> list[str]:
-    password = PASSWORD_MASK if mask_password else (connection.password or "")
+    password = PASSWORD_MASK if mask_password else _escape_at(connection.password or "")
     return [
-        "--server.endpoint", to_tools_endpoint(connection.endpoint),
-        "--server.database", connection.database or "_system",
-        "--server.username", connection.username or "root",
+        "--server.endpoint", _escape_at(to_tools_endpoint(connection.endpoint)),
+        "--server.database", _escape_at(connection.database or "_system"),
+        "--server.username", _escape_at(connection.username or "root"),
         "--server.password", password,
         "--server.authentication", "true",
     ]
