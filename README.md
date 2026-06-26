@@ -178,8 +178,5 @@ cd frontend && npm test
 - The container runs as a non-root user with a read-only root filesystem; the
   Helm chart drops all Linux capabilities and uses the `RuntimeDefault` seccomp
   profile.
-- **Not yet hardened (tracked as follow-ups):** there is no application-level
-  authentication on the API/WebSocket, the connection test currently skips TLS
-  certificate verification, and credentials are passed to the tools as CLI
   flags (visible via `ps` inside the pod). Until these land, rely on network
   isolation (private Service) and a single trusted tenant per deployment.
